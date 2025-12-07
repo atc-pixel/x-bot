@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Optional
 
 
@@ -51,3 +51,5 @@ class BotConfig:
     topics: Dict
     style: StyleConfig
     apify: ApifyConfig
+    # YENİ EKLENEN ALAN:
+    style_examples: List[Dict] = field(default_factory=list)

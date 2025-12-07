@@ -7,7 +7,7 @@ from .twitter_client import post_tweet
 
 
 # -----------------------------------------------------------
-#   STYLE BLOCK — LLM’in %80 dikkatini buraya çeker
+#   STYLE BLOCK
 # -----------------------------------------------------------
 
 def _build_style_block(style_examples: List[dict]) -> str:
@@ -120,8 +120,8 @@ KURALLAR:
 
 def _pick_mention_target(config: BotConfig, dynamic_handles: Optional[List[str]]) -> Optional[str]:
     """Mention atılacak kişiyi seçer."""
-    static = config.mention_targets.static_handles
-    use_dynamic = config.mention_targets.use_dynamic
+    static = config.mention_targets.static_handles if hasattr(config.mention_targets, 'static_handles') else config.mentions.static_targets
+    use_dynamic = config.mention_targets.use_dynamic if hasattr(config.mention_targets, 'use_dynamic') else config.mentions.dynamic_targets_enabled
 
     if use_dynamic and dynamic_handles:
         pool = static + dynamic_handles
@@ -146,19 +146,26 @@ def run_once(config: BotConfig, openai_client, twitter_client):
         config.actions.random_min,
         config.actions.random_max
     )
+    
+    # --- DÜZELTME BAŞLANGICI ---
+    # config.actions.mention_range YERİNE config.actions.mention
+    # config.actions.tweet_range YERİNE config.actions.tweet
+    
     # Decide action
-    if config.actions.mention_range[0] <= r <= config.actions.mention_range[1]:
+    if config.actions.mention[0] <= r <= config.actions.mention[1]:
         decided = "mention"
-    elif config.actions.tweet_range[0] <= r <= config.actions.tweet_range[1]:
+    elif config.actions.tweet[0] <= r <= config.actions.tweet[1]:
         decided = "tweet"
     else:
         decided = "no_action"
-
+    
     print(f"[INFO] Random value: {r}, decided action: {decided}")
 
 
-    mention_lo, mention_hi = config.actions.mention_range
-    tweet_lo, tweet_hi = config.actions.tweet_range
+    mention_lo, mention_hi = config.actions.mention
+    tweet_lo, tweet_hi = config.actions.tweet
+    
+    # --- DÜZELTME BİTİŞİ ---
 
     dynamic_handles = []  # ileride dinamik handle desteği buraya takılır
 
@@ -173,7 +180,11 @@ def run_once(config: BotConfig, openai_client, twitter_client):
     #  TWEET ACTION
     # -----------------------------------------------------------
     if mention_hi < r <= tweet_hi:
-        prompt = build_tweet_prompt(config, config.style_examples)
+        # NOT: Bir önceki adımda konuştuğumuz 'style_examples' hatasını almamak için
+        # BotConfig modelini ve main.py'yi güncellemiş olman gerekiyor.
+        # Eğer yapmadıysan burada yine hata alırsın.
+        
+        prompt = build_tweet_prompt(config, getattr(config, 'style_examples', [])) 
         text = generate_text(openai_client, prompt)
 
         if not text or not text.strip():
@@ -181,6 +192,8 @@ def run_once(config: BotConfig, openai_client, twitter_client):
             return
 
         print(f"[DEBUG] Generated tweet: {text}")
+        
+        # Eğer sadece görmek istiyorsan, post_tweet satırını yoruma alabilirsin:
         post_tweet(twitter_client, text)
         return
 
@@ -195,8 +208,9 @@ def run_once(config: BotConfig, openai_client, twitter_client):
             return
 
         # Stil cache'inde bu handle’a ait örnek arıyoruz
+        style_ex = getattr(config, 'style_examples', [])
         candidate = next(
-            (ex for ex in config.style_examples if ex["handle"] == handle),
+            (ex for ex in style_ex if ex["handle"] == handle),
             None
         )
 
@@ -211,7 +225,7 @@ def run_once(config: BotConfig, openai_client, twitter_client):
             print(f"[WARN] target_text is empty for @{handle}; skipping.")
             return
 
-        prompt = build_mention_prompt(config, handle, target_text, config.style_examples)
+        prompt = build_mention_prompt(config, handle, target_text, style_ex)
         reply_text = generate_text(openai_client, prompt)
 
         if not reply_text.strip():
@@ -222,5 +236,6 @@ def run_once(config: BotConfig, openai_client, twitter_client):
 
         print(f"[DEBUG] Generated mention reply: {reply_text}")
 
+        # Eğer sadece görmek istiyorsan, post_tweet satırını yoruma alabilirsin:
         post_tweet(twitter_client, reply_text, in_reply_to_tweet_id=target_tweet_id)
         return

@@ -1,7 +1,8 @@
 import os
 from openai import OpenAI
 
-MODEL_NAME = "gpt-4.1"
+# DÜZELTME: Geçerli bir model ismi girildi.
+MODEL_NAME = "gpt-4o" 
 
 
 def build_openai_client() -> OpenAI:
@@ -15,8 +16,8 @@ def generate_text(client: OpenAI, prompt: str) -> str:
     resp = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}],
-        max_completion_tokens=160,
-        # GPT-5 mini için temperature göndermiyoruz
+        max_completion_tokens=200, # Biraz artırıldı, cümle yarıda kalmasın.
+        temperature=0.7, # Yaratıcılık için eklenebilir (isteğe bağlı)
     )
 
     content = resp.choices[0].message.content
@@ -29,7 +30,7 @@ def generate_text(client: OpenAI, prompt: str) -> str:
         print("[WARN] LLM returned empty text after stripping.")
         return ""
 
-    if len(text) > 260:
-        text = text[:260]
+    if len(text) > 280: # Twitter limiti 280
+        text = text[:280]
 
     return text
