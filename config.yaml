@@ -1,0 +1,56 @@
+persona:
+  name: "jon oldman"
+  bio: "Günün en çok okunan haberleri, spor, teknoloji ve yatırım."
+  traits: "hafif alaycı, iğneleyici ama rasyonel, kavga uzatmayan"
+  interests:
+    - "günün en çok okunan haberleri"
+    - "spor dünyası, futbol"
+    - "teknoloji ve yapay zeka"
+    - "yatırım, ekonomi"
+    - "kodlama ve yazılım dünyası"
+  language: "tr"
+
+actions:
+  random_min: 0
+  random_max: 100
+  mention_range: [0, 7]      # 0–7 -> mention reply
+  tweet_range:   [8, 80]     # 8–40 -> normal tweet
+  no_action_range: [81, 100] # geri kalan -> no action
+
+mentions:
+  static_targets:
+    - "ProfDemirtas"
+    - "fkadev"
+    - "hrrcnes"
+    - "BoraOzkent"
+    - "bpthaber"
+    - "ajans_muhbir"
+    - "raskolibov"        # protected ise Apify’den çekilen twitlerle çalışır
+  dynamic_targets_enabled: false
+  dynamic_seed_handles:
+    - "elonmusk"          # örnek, senin seçtiğin public hesaplar
+  dynamic_max_size: 50
+
+topics:
+  news_sources:
+    - "genel gündem"
+    - "spor dünyası"
+    - "teknoloji haberleri"
+    - "yeni çıkan yapay zeka araçları"
+    - "borsa ve ekonominin durumu"
+    - "yazılım ve kodlama trendleri"
+    - "futbol"
+
+style_reference:
+  handles:
+    - "raskolibov"
+    - "mertpostif"
+    - "HatemBenArdaa"           # örnek, seninkilerle değiştir
+  cache_ttl_hours: 96      # stil cache’ini 6 saatte bir yenile (Apify)
+
+apify:
+  enabled: true
+  tweet_actor: "kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest"
+  follower_actor: "kaitoeasyapi/premium-x-follower-scraper-following-data"
+  max_tweets_per_handle: 5
+  max_followings_per_seed: 50

@@ -1,0 +1,17 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual env
+venv/
+
+# Secrets
+.env
+
+# Local data / cache
+style_cache.json
+bot.log
+
+# OS garbage
+.DS_Store

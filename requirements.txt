@@ -1,0 +1,5 @@
+tweepy
+pyyaml
+python-dotenv
+openai
+requests
