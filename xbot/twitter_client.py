@@ -2,77 +2,49 @@ import os
 import asyncio
 import random
 from twikit import Client
-from typing import Optional, Dict
 
-async def _fetch_latest_tweet_async(username: str, auth_info: dict) -> Optional[Dict]:
-    # Cloudflare'i aşmak için gerçek bir tarayıcı User-Agent'ı kullanıyoruz
+def build_twitter_client():
+    # Tweepy yerine Twikit kullandığımız için boş dönüyoruz
+    return None
+
+async def _post_tweet_async(text: str, reply_to: str = None):
     client = Client(
         language='en-US',
         user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     )
     
-    # Cookies dosyasının yolu
     cookies_path = 'cookies.json'
 
-    # 1. Giriş Yap (Web arayüzü gibi davranır)
-    try:
-        if os.path.exists(cookies_path):
+    # Scrapper'ın oluşturduğu çerezleri kullan
+    if os.path.exists(cookies_path):
+        try:
             client.load_cookies(cookies_path)
-            # Cookie yükledikten sonra kısa bir bekleme (insan gibi)
-            await asyncio.sleep(random.uniform(1.0, 3.0))
-        else:
-            print("[INFO] Cookies not found, logging in with credentials...")
-            await client.login(
-                auth_info_1=auth_info['username'],
-                auth_info_2=auth_info['email'],
-                password=auth_info['password']
-            )
-            client.save_cookies(cookies_path)
-            print("[INFO] Logged in and cookies saved.")
-
-        # 2. Kullanıcıyı bul
-        user = await client.get_user_by_screen_name(username)
-        await asyncio.sleep(random.uniform(1.5, 3.5)) # İnsan taklidi
-        
-        # 3. Son tweetlerini çek
-        tweets = await user.get_tweets('Tweets', count=1)
-        
-        if not tweets:
-            return None
-            
-        latest_tweet = tweets[0]
-        
-        return {
-            "id": latest_tweet.id,
-            "text": latest_tweet.text,
-            "author": username
-        }
-
-    except Exception as e:
-        print(f"[ERROR] Twikit fetch error for @{username}: {e}")
-        # Eğer cookie hatası varsa dosyayı silip tekrar denemesi için
-        if "403" in str(e) or "401" in str(e):
-             print("[WARN] Authentication failed. Deleting cookies.json to retry next time.")
-             if os.path.exists(cookies_path):
-                 os.remove(cookies_path)
-        return None
-
-def fetch_latest_tweet_scrapper(username: str) -> Optional[Dict]:
-    """
-    Twikit kullanarak ücretsiz şekilde son tweeti çeker.
-    """
-    auth_info = {
-        'username': os.getenv("TWITTER_USERNAME"),
-        'email': os.getenv("TWITTER_EMAIL"),
-        'password': os.getenv("TWITTER_PASSWORD")
-    }
-
-    if not all(auth_info.values()):
-        print("[ERROR] .env dosyasında TWITTER_USERNAME, EMAIL ve PASSWORD eksik!")
-        return None
+        except Exception as e:
+            print(f"[ERROR] Failed to load cookies for posting: {e}")
+            return
+    else:
+        print("[ERROR] cookies.json not found! Please check .env and run scrapper first.")
+        return
 
     try:
-        return asyncio.run(_fetch_latest_tweet_async(username, auth_info))
+        print("[INFO] Preparing to post tweet via Twikit...")
+        
+        # İNSAN TAKLİDİ: Tweeti yazıyormuş gibi rastgele bekle
+        wait_time = random.uniform(5.0, 12.0)
+        print(f"[DEBUG] Waiting {wait_time:.1f} seconds to mimic human typing...")
+        await asyncio.sleep(wait_time)
+
+        # Reply ise ID ver, değilse normal tweet at
+        await client.create_tweet(text=text, reply_to=reply_to)
+        print("[INFO] Tweet successfully posted!")
+        
     except Exception as e:
-        print(f"[ERROR] Async run failed: {e}")
-        return None
+        print(f"[ERROR] Twikit post failed: {e}")
+        # Eğer 226 hatası alırsan cookie'leri silme, çünkü okuma (fetch) hala çalışıyor olabilir.
+        # Sadece 401/403 durumunda silmek daha mantıklı.
+
+def post_tweet(client, text: str, in_reply_to_tweet_id: str = None, quote_tweet_id: str = None):
+    """
+    Twikit kullanarak tweet atar.
+    """
+    asyncio.run(_post_tweet_async(text, in_reply_to_tweet_id))
