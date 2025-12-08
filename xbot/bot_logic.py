@@ -4,80 +4,77 @@ from typing import List, Optional
 from .models import BotConfig
 from .openai_client import generate_text
 from .twitter_client import post_tweet
-
+from .news_client import get_random_news_item  
+from .scrapper_client import fetch_latest_tweet_scrapper
 
 # -----------------------------------------------------------
 #   STYLE BLOCK
 # -----------------------------------------------------------
 
 def _build_style_block(style_examples: List[dict]) -> str:
-    """Modelin yazım tarzını doğrudan taklit etmesi için stil örneklerini düzenler."""
-
+    """Modelin yazım tarzını kopyalaması için örnekleri hazırlar."""
     if not style_examples:
-        return ""
+        return "Stil örneği yok. Kısa, öz ve hafif agresif yaz."
 
-    # max 8 örnek alıyoruz
-    samples = random.sample(style_examples, k=min(len(style_examples), 8))
+    # SENİN GÜNCELLEMEN: Örnek sayısını artırdık.
+    # Ancak token limitini patlatmamak için çok uzun tweetleri filtreleyelim.
+    valid_examples = [ex for ex in style_examples if ex.get("text") and len(ex["text"]) < 280]
+    samples = random.sample(valid_examples, k=min(len(valid_examples), 20))
 
     lines = []
-    for i, ex in enumerate(samples, 1):
-        text = ex.get("text") or ""
-        text = text.replace("\n", " ").strip()
-        if not text:
-            continue
-        if len(text) > 200:
-            text = text[:200] + "..."
-        lines.append(f"ÖRNEK {i}: {text}")
-
-    if not lines:
-        return ""
+    for ex in samples:
+        text = ex["text"].replace("\n", " ").strip()
+        lines.append(f">>> {text}")
 
     return (
-        "Aşağıdaki tweet örnekleri, birebir KOPYALAMAMAN gereken ama TARZINI taklit edeceğin stil örnekleridir.\n"
-        "Bu örneklerden şunları taklit et:\n"
-        "- cümle uzunluğu\n"
-        "- ritim\n"
-        "- ironik/alayıcı ton\n"
-        "- kısa ve timeline uyumlu yapı\n"
-        "Ama hiçbir cümleyi doğrudan kopyalama, sadece 'tavır ve ritmi' al.\n\n"
-        + "\n".join(lines)
-        + "\n"
+        "AŞAĞIDAKİ TWEETLER, SENİN TAKLİT ETMEN GEREKEN 'RUH HALİ', 'ARGO' VE 'ÜSLUP' ÖRNEKLERİDİR.\n"
+        "BU ÖRNEKLERİ ANALİZ ET VE ŞUNLARI KOPYALA:\n"
+        "1. Cümle yapısı (küçük harfle başlama, nokta koymama vb.)\n"
+        "2. Küfür/Argo kullanımı (aq, amk, lan vb. varsa sen de kullan)\n"
+        "3. Agresiflik veya boş vermişlik seviyesi.\n"
+        "4. Asla 'robot' gibi düzgün cümle kurma.\n"
+        "--------------------------------------------------\n"
+        + "\n".join(lines) + "\n"
+        "--------------------------------------------------\n"
     )
 
 
 # -----------------------------------------------------------
-#   BUILD TWEET PROMPT
+#   BUILD TWEET PROMPT (HABER YORUMLAMA)
 # -----------------------------------------------------------
 
-def build_tweet_prompt(config: BotConfig, style_examples: List[dict]) -> str:
+def build_news_tweet_prompt(config: BotConfig, news_item: dict, style_examples: List[dict]) -> str:
     persona = config.persona
-    interests = ", ".join(persona.interests)
     style_block = _build_style_block(style_examples)
+    
+    news_context = f"HABER BAŞLIĞI: {news_item['title']}\nKAYNAK: {news_item['source']}"
 
     return f"""
-AŞAĞIDAKİ GÖREVİ BİR X KULLANICISI GİBİ YERİNE GETİR.
+GÖREV: Aşağıdaki haberi gören bir 'Twitter Fenomeni' gibi bu haberi yorumla (Tweet at).
 
-ÖNCELİK SIRAN:
-1) Stil örneklerindeki yazım tarzı
-2) Türkçe'nin doğal akışı
-3) Karakter kişiliği
+KİMLİK (PERSONA):
+İsim: {persona.name}
+Özellikler: {persona.traits}
+Dil: {persona.language} (Sokak ağzı, Twitter jargonu)
 
-KARAKTER:
-- Ton: {persona.traits}
-- İlgi alanları: {interests}
-- Dil: {persona.language}
-
-STİL (EN BÜYÜK ÖNCELİK):
+REFERANS STİL (BUNU TAKLİT ET - KUTSAL KİTABIN BU):
 {style_block}
 
-GÖREV:
-- Yukarıdaki ilgi alanlarından birine dair tek bir tweet yaz.
-- 240 karakteri geçme.
-- Kısa, doğal, tok, timeline üslubunda.
-- Açıklama yapma. Makale yazma.
-- Tek çıktı: Tweet metni.
-"""
+HEDEF HABER:
+{news_context}
 
+🛑 KESİN KURALLAR (AŞARSAN FİŞİNİ ÇEKERİM):
+1. 🚫 ASLA EMOJI KULLANMA.
+2. 🚫 ASLA HASHTAG (#) KULLANMA.
+3. 🚫 Haber başlığını olduğu gibi yazma. Habere tepki ver.
+4. 🚫 "İnanılmaz", "Şok oldum" gibi yapay tepkiler verme.
+5. ✅ Stil örneklerinde küfür/argo (aq, amk, s**t) varsa, ÇEKİNMEDEN KULLAN. Sansürleme.
+6. ✅ İmla kurallarını boşver. Örneklerdeki gibi küçük harfle başla, nokta koyma.
+7. ✅ Alaycı, sarkastik, iğneleyici ol. Taraf tut.
+8. Tweet 240 karakteri geçmesin.
+
+ÇIKTI (SADECE TWEET):
+"""
 
 # -----------------------------------------------------------
 #   BUILD MENTION PROMPT
@@ -93,44 +90,65 @@ def build_mention_prompt(
     style_block = _build_style_block(style_examples)
 
     return f"""
-AŞAĞIDAKİ TWEET'E GERÇEK BİR X KULLANICISI GİBİ CEVAP VER.
+GÖREV: Aşağıdaki tweete mention atarak cevap ver.
 
-ÖNCELİK:
-1) Stil örnekleri
-2) Doğal Türkçe
-3) Karakter tonu
+HEDEF TWEET (@{handle}):
+"{target_tweet_text}"
 
-HEDEF TWEET:
-@{handle}: "{target_tweet_text}"
+REFERANS STİL (BUNU TAKLİT ET):
+{style_block}
 
-STİL:
+🛑 KESİN KURALLAR:
+1. 🚫 EMOJI VE HASHTAG YASAK.
+2. 🚫 Resmiyetten uzak dur. "Merhaba", "Sayın" YOK.
+3. ✅ Gerekirse sert çıkış, gerekirse dalga geç.
+4. ✅ "aq", "amk", "lan" gibi kalıplar stil örneklerinde varsa kullan.
+5. Sadece cevap metnini yaz.
+
+CEVAP:
+"""
+# -----------------------------------------------------------
+#   BUILD QUOTE PROMPT
+# -----------------------------------------------------------
+
+def build_quote_prompt(config: BotConfig, target_handle: str, target_text: str, style_examples: List[dict]) -> str:
+    persona = config.persona
+    style_block = _build_style_block(style_examples)
+
+    return f"""
+GÖREV: Aşağıdaki tweeti, sanki timeline'ında görüp takipçilerine gösteriyormuş gibi ALINTILA (Quote Tweet).
+
+HEDEF TWEET (@{target_handle}):
+"{target_text}"
+
+SENİN KİMLİĞİN:
+{persona.traits}
+Dil: {persona.language} (Sokak ağzı, sarkastik)
+
+STİL REHBERİ:
 {style_block}
 
 KURALLAR:
-- 1–2 cümlelik doğal bir mention yaz.
-- Hafif iğneleyici olabilir ama kavga çıkarmayan.
-- Tweet uzunluğu: en fazla 240 karakter.
-- Sadece mention metnini döndür.
-"""
+1. 🚫 EMOJI VE HASHTAG YASAK.
+2. 🚫 "Bakın ne demiş" gibi sıkıcı girişler yapma.
+3. Hedef tweetin içeriğiyle ilgili sarkastik, iğneleyici bir yorum yap.
+4. 240 karakteri geçme.
 
+ÇIKTI:
+"""
 
 # -----------------------------------------------------------
 #   PICK MENTION TARGET
 # -----------------------------------------------------------
 
 def _pick_mention_target(config: BotConfig, dynamic_handles: Optional[List[str]]) -> Optional[str]:
-    """Mention atılacak kişiyi seçer."""
-    static = config.mention_targets.static_handles if hasattr(config.mention_targets, 'static_handles') else config.mentions.static_targets
-    use_dynamic = config.mention_targets.use_dynamic if hasattr(config.mention_targets, 'use_dynamic') else config.mentions.dynamic_targets_enabled
+    static = getattr(config.mentions, 'static_targets', [])
+    use_dynamic = getattr(config.mentions, 'dynamic_targets_enabled', False)
 
-    if use_dynamic and dynamic_handles:
-        pool = static + dynamic_handles
-    else:
-        pool = static
-
+    pool = (static + dynamic_handles) if (use_dynamic and dynamic_handles) else static
+    
     if not pool:
         return None
-
     return random.choice(pool)
 
 
@@ -139,103 +157,114 @@ def _pick_mention_target(config: BotConfig, dynamic_handles: Optional[List[str]]
 # -----------------------------------------------------------
 
 def run_once(config: BotConfig, openai_client, twitter_client):
-    """Bot'un bir çalıştırmada ne yapacağını belirler."""
-
-    # Action dağılımı
-    r = random.randint(
-        config.actions.random_min,
-        config.actions.random_max
-    )
+    r = random.randint(config.actions.random_min, config.actions.random_max)
     
-    # --- DÜZELTME BAŞLANGICI ---
-    # config.actions.mention_range YERİNE config.actions.mention
-    # config.actions.tweet_range YERİNE config.actions.tweet
-    
-    # Decide action
+    # Eylem aralıklarını kontrol et
     if config.actions.mention[0] <= r <= config.actions.mention[1]:
         decided = "mention"
+    elif config.actions.quote[0] <= r <= config.actions.quote[1]:
+        decided = "quote"
     elif config.actions.tweet[0] <= r <= config.actions.tweet[1]:
         decided = "tweet"
     else:
         decided = "no_action"
     
-    print(f"[INFO] Random value: {r}, decided action: {decided}")
+    print(f"[INFO] Random: {r}, Action: {decided}")
 
-
-    mention_lo, mention_hi = config.actions.mention
-    tweet_lo, tweet_hi = config.actions.tweet
-    
-    # --- DÜZELTME BİTİŞİ ---
-
-    dynamic_handles = []  # ileride dinamik handle desteği buraya takılır
-
-    # -----------------------------------------------------------
-    #  NO ACTION
-    # -----------------------------------------------------------
-    if r < mention_lo or r > tweet_hi:
-        print("[INFO] No action this run.")
+    if decided == "no_action":
         return
 
     # -----------------------------------------------------------
-    #  TWEET ACTION
+    #  TWEET ACTION (HABER YORUMLAMA)
     # -----------------------------------------------------------
-    if mention_hi < r <= tweet_hi:
-        # NOT: Bir önceki adımda konuştuğumuz 'style_examples' hatasını almamak için
-        # BotConfig modelini ve main.py'yi güncellemiş olman gerekiyor.
-        # Eğer yapmadıysan burada yine hata alırsın.
+    if decided == "tweet":
+        styles = getattr(config, 'style_examples', [])
         
-        prompt = build_tweet_prompt(config, getattr(config, 'style_examples', [])) 
+        # 1. Haberi çek
+        print("[INFO] Fetching a random news item...")
+        news_item = get_random_news_item()
+        
+        if not news_item:
+            print("[WARN] Could not fetch news. Falling back to generic prompt isn't implemented. Skipping.")
+            return
+
+        print(f"[INFO] Selected News: {news_item['title']}")
+
+        # 2. Prompt oluştur
+        prompt = build_news_tweet_prompt(config, news_item, styles)
+        
+        # 3. Yazdır
         text = generate_text(openai_client, prompt)
 
         if not text or not text.strip():
             print("[WARN] Empty tweet generated; skipping.")
             return
 
-        print(f"[DEBUG] Generated tweet: {text}")
+        # 4. (Opsiyonel) Haberin linkini de ekleyelim mi?
+        # Genelde 'alıntı' (quote tweet) mantığı daha iyidir ama link atmak etkileşimi düşürebilir.
+        # Şimdilik sadece metin atıyoruz, "haberden bahsediyor" gibi.
         
-        # Eğer sadece görmek istiyorsan, post_tweet satırını yoruma alabilirsin:
+        print(f"[DEBUG] Generated tweet: {text}")
         post_tweet(twitter_client, text)
         return
 
     # -----------------------------------------------------------
     #  MENTION ACTION
     # -----------------------------------------------------------
-    if mention_lo <= r <= mention_hi:
-
-        handle = _pick_mention_target(config, dynamic_handles)
+    if decided == "mention":
+        handle = _pick_mention_target(config, [])
         if not handle:
-            print("[WARN] No mention target. Skipping.")
             return
 
-        # Stil cache'inde bu handle’a ait örnek arıyoruz
-        style_ex = getattr(config, 'style_examples', [])
-        candidate = next(
-            (ex for ex in style_ex if ex["handle"] == handle),
-            None
-        )
+        all_styles = getattr(config, 'style_examples', [])
+        candidate = next((ex for ex in all_styles if ex["handle"] == handle), None)
 
         if not candidate:
-            print(f"[WARN] No style example found for @{handle}. Skipping mention.")
+            print(f"[WARN] No cached tweet found for @{handle}. Skipping.")
             return
 
         target_text = candidate.get("text") or ""
         target_tweet_id = candidate.get("tweet_id") or None
 
-        if not target_text.strip():
-            print(f"[WARN] target_text is empty for @{handle}; skipping.")
-            return
-
-        prompt = build_mention_prompt(config, handle, target_text, style_ex)
+        prompt = build_mention_prompt(config, handle, target_text, all_styles)
         reply_text = generate_text(openai_client, prompt)
 
         if not reply_text.strip():
-            print(f"[WARN] Empty reply for @{handle}; skipping.")
             return
 
         reply_text = f"@{handle} {reply_text}"
+        print(f"[DEBUG] Generated mention: {reply_text}")
 
-        print(f"[DEBUG] Generated mention reply: {reply_text}")
-
-        # Eğer sadece görmek istiyorsan, post_tweet satırını yoruma alabilirsin:
         post_tweet(twitter_client, reply_text, in_reply_to_tweet_id=target_tweet_id)
+        return
+        
+    # -----------------------------------------------------------
+    #  QUOTE ACTION (Twikit ile Ücretsiz)
+    # -----------------------------------------------------------
+    if decided == "quote":
+        targets = getattr(config, "quote_targets", [])
+        if not targets:
+            print("[WARN] No quote targets defined.")
+            return
+
+        target_handle = random.choice(targets)
+        print(f"[INFO] Fetching latest tweet for quote: @{target_handle} (via Twikit)")
+        
+        # Ücretsiz Scraper ile çek
+        tweet_data = fetch_latest_tweet_scrapper(target_handle)
+        
+        if not tweet_data:
+            print(f"[WARN] Could not fetch tweet for @{target_handle}. Skipping.")
+            return
+
+        styles = getattr(config, 'style_examples', [])
+        # Stil örnekleri hala style_examples.json'dan (veya config'den) geliyor, bu değişmedi.
+        
+        prompt = build_quote_prompt(config, target_handle, tweet_data["text"], styles)
+        
+        text = generate_text(openai_client, prompt)
+        if not text: return
+
+        print(f"[DEBUG] Generated Quote Text: {text}")
+        post_tweet(twitter_client, text, quote_tweet_id=tweet_data["id"])
         return

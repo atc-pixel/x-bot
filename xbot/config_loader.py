@@ -29,9 +29,10 @@ def load_config(path: str = "config.yaml") -> BotConfig:
     )
 
     actions = ActionRanges(
-        mention=tuple(actions_raw["mention_range"]),
-        tweet=tuple(actions_raw["tweet_range"]),
-        no_action=tuple(actions_raw["no_action_range"]),
+        mention=tuple(actions_raw["mention"]),
+        quote=tuple(actions_raw.get("quote", [0, 0])), # YENİ: Config'de yoksa hata vermesin diye varsayılan ekledim
+        tweet=tuple(actions_raw["tweet"]),
+        no_action=tuple(actions_raw["no_action"]),
         random_min=actions_raw.get("random_min", 0),
         random_max=actions_raw.get("random_max", 100),
     )
@@ -63,4 +64,5 @@ def load_config(path: str = "config.yaml") -> BotConfig:
         topics=topics_raw,
         style=style,
         apify=apify,
+        quote_targets=raw.get("quote_targets", []), # YENİ
     )

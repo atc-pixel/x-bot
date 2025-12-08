@@ -14,6 +14,7 @@ class PersonaConfig:
 @dataclass
 class ActionRanges:
     mention: Tuple[int, int]
+    quote: Tuple[int, int]      # YENİ EKLENDİ
     tweet: Tuple[int, int]
     no_action: Tuple[int, int]
     random_min: int
@@ -51,5 +52,5 @@ class BotConfig:
     topics: Dict
     style: StyleConfig
     apify: ApifyConfig
-    # YENİ EKLENEN ALAN:
+    quote_targets: List[str] = field(default_factory=list) # YENİ EKLENDİ
     style_examples: List[Dict] = field(default_factory=list)

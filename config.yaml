@@ -13,9 +13,19 @@ persona:
 actions:
   random_min: 0
   random_max: 100
-  mention_range: [0, 7]      # 0–7 -> mention reply
-  tweet_range:   [8, 80]     # 8–40 -> normal tweet
-  no_action_range: [81, 100] # geri kalan -> no action
+  # YENİ EYLEM ARALIKLARI:
+  mention:   [0, 10]    # %10 Reply
+  quote:     [11, 60]   # %30 Alıntı (Quote Tweet)
+  tweet:     [61, 70]   # %30 Normal Tweet (Haber/Konu)
+  no_action: [71, 100]  # %30 Pas
+
+# YENİ: ALINTI YAPILACAK HESAPLAR
+quote_targets:
+  - "bpthaber"
+  - "populicc"
+  - "ajans_muhbir"
+  - "Pusholder"
+  - "solcugazete"
 
 mentions:
   static_targets:
@@ -25,10 +35,10 @@ mentions:
     - "BoraOzkent"
     - "bpthaber"
     - "ajans_muhbir"
-    - "raskolibov"        # protected ise Apify’den çekilen twitlerle çalışır
+    - "raskolibov"
   dynamic_targets_enabled: false
   dynamic_seed_handles:
-    - "elonmusk"          # örnek, senin seçtiğin public hesaplar
+    - "elonmusk"
   dynamic_max_size: 50
 
 topics:
@@ -45,12 +55,13 @@ style_reference:
   handles:
     - "raskolibov"
     - "mertpostif"
-    - "HatemBenArdaa"           # örnek, seninkilerle değiştir
-  cache_ttl_hours: 96      # stil cache’ini 6 saatte bir yenile (Apify)
+    - "HatemBenArdaa"
+  cache_ttl_hours: 24
 
 apify:
-  enabled: true
-  tweet_actor: "kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest"
+  # Twikit/Manuel sisteme geçtiğimiz için Apify'ı kapattık
+  enabled: false
+  tweet_actor: "apidojo/tweet-scraper"
   follower_actor: "kaitoeasyapi/premium-x-follower-scraper-following-data"
-  max_tweets_per_handle: 5
+  max_tweets_per_handle: 10
   max_followings_per_seed: 50
